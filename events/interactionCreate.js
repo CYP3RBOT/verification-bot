@@ -12,6 +12,7 @@ require("dotenv").config();
 const uri = process.env.DATABASE_LOGIN;
 const foreignerRole = process.env.FOREIGNER_ROLE;
 const verifiedRole = process.env.VERIFIED_ROLE;
+const clientGuild = process.env.CLIENT_SERVER;
 
 async function getActiveVerificationCodes() {
   const client = new MongoClient(uri);
@@ -63,9 +64,11 @@ async function removeActiveVerificationCodes(discord_id) {
   }
 }
 
-async function updateUser(member, username, discord_id) {
+async function updateUser(interaction, username, discord_id) {
   const client = new MongoClient(uri);
 
+  const guild = await interaction.client.guilds.cache.get(clientGuild);
+  const member = await guild.members.cache.get(discord_id);
   try {
     await client.connect();
     const col = client.db("cipher").collection("verified_users");
@@ -161,10 +164,9 @@ module.exports = {
           });
           return;
         }
-        const member = await interaction.guild.members.cache.get(discord_id);
         await addVerifiedUser(roblox_id, discord_id);
         await removeActiveVerificationCodes(discord_id);
-        await updateUser(member, username, discord_id);
+        await updateUser(interaction, username, discord_id);
         await interaction.reply({
           content: "You have been verified!",
         });

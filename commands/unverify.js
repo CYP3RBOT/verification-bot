@@ -5,7 +5,6 @@ require("dotenv").config();
 
 const uri = process.env.DATABASE_LOGIN;
 const foreignerRole = process.env.FOREIGNER_ROLE;
-const verifiedRole = process.env.VERIFIED_ROLE;
 
 async function removeVerifiedUser(discord_id) {
   const client = new MongoClient(uri);
@@ -37,23 +36,35 @@ module.exports = {
     .setDescription("Remove your verified role and attached account"),
   async execute(interaction) {
     await interaction.deferReply();
-
     const user = await removeVerifiedUser(interaction.user.id);
 
     if (!user) {
+      const embed = new EmbedBuilder()
+        .setTitle("Error")
+        .setDescription(
+          "You are not verified. Please verify yourself using the </verify:1066111449627369476> command."
+        );
+
       await interaction.editReply({
-        content: "You are not verified.",
+        embeds: [embed],
       });
       return;
     } else {
       const guild = interaction.guild;
       const member = await guild.members.fetch(interaction.user.id);
 
-      member.roles.remove(verifiedRole);
-      member.roles.add(foreignerRole);
+      for (const role of member.roles.cache) {
+        await member.roles.remove(role);
+      }
 
+      member.roles.add(foreignerRole);
+      const embed = new EmbedBuilder()
+        .setTitle("Success")
+        .setDescription(
+          "You are no longer verified! Please re-verify yourself using the </verify:1066111449627369476> command."
+        );
       await interaction.editReply({
-        content: "You are no longer verified.",
+        embeds: [embed],
       });
     }
   },

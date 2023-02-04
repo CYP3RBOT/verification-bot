@@ -8,30 +8,8 @@ const API = "https://users.roblox.com/v1/users/";
 const uri = process.env.DATABASE_LOGIN;
 const foreignerRole = process.env.FOREIGNER_ROLE;
 const verifiedRole = process.env.VERIFIED_ROLE;
+const privateRole = process.env.PRIVATE_ROLE;
 const COOKIE = process.env.COOKIE;
-const GROUP = 15808083;
-
-const groupRanks = {
-  "1057389089483137136": 1,
-  "1065831043816489011": 2,
-  "1066453586499874977": 3,
-  "1065826509203439626": 4,
-  "1065830922143936544": 5,
-  "1057476236194107432": 6,
-  "1065825311503171615": 7,
-};
-
-const groupRolesId = {
-  0: 88749872,
-  1: 88749871,
-  2: 93905595,
-  3: 93905589,
-  4: 89159012,
-  5: 93884401,
-  6: 88749922,
-  7: 88749870,
-  255: 88749869,
-};
 
 async function updateUserGroupRank(user, roleId) {
   var data = JSON.stringify({
@@ -84,7 +62,6 @@ async function updateUserGroupRank(user, roleId) {
     return false;
   }
 }
-
 async function doGroupUpdate(groupUser, robloxId) {
   const groupRoles = [];
   for (const role of groupUser.roles.cache.values()) {
@@ -137,10 +114,34 @@ async function updateUser(interaction, discord_id) {
     username = json.name;
 
     const member = await interaction.guild.members.cache.get(discord_id);
-    await doGroupUpdate(member, userId);
     try {
-      await member.roles.add(verifiedRole);
-      await member.roles.remove(foreignerRole);
+      if (member.roles.cache.has(foreignerRole))
+        await member.roles.remove(foreignerRole);
+
+      if (!member.roles.cache.has(verifiedRole))
+        await member.roles.add(verifiedRole);
+
+      const hasEnlistedRole = () => {
+        for (const role of member.roles.cache.values()) {
+          if (
+            role.name.startsWith("E2") ||
+            role.name.startsWith("E3") ||
+            role.name.startsWith("E4") ||
+            role.name.startsWith("E5") ||
+            role.name.startsWith("E6") ||
+            role.name.startsWith("E7") ||
+            role.name.startsWith("E8")
+          ) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      if (!hasEnlistedRole()) {
+        await member.roles.add(privateRole);
+      }
+
       await member.setNickname(username, "Updating username");
     } catch (e) {
       console.error("Could not update user: " + member.id);
@@ -167,26 +168,42 @@ module.exports = {
   async execute(interaction) {
     await interaction.deferReply();
     const user = interaction.options.getUser("user");
+    let focusUser;
 
     if (interaction.member.roles.cache.has(foreignerRole) && user) {
-      return interaction.editReply({
-        content: "You are not allowed to update other users.",
+      const embed = new EmbedBuilder()
+        .setTitle("Error")
+        .setDescription(
+          "You cannot update other users if you are not verified."
+        );
+      await interaction.editReply({
+        embeds: [embed],
       });
     }
     let response;
     if (user) {
       response = await updateUser(interaction, user.id);
+      focusUser = user.id;
     } else {
       response = await updateUser(interaction, interaction.user.id);
+      focusUser = interaction.user.id;
     }
     if (response) {
+      const embed = new EmbedBuilder()
+        .setTitle("Success")
+        .setDescription(`<@${focusUser}> has successfully been updated!`);
       await interaction.editReply({
-        content: "User updated.",
+        embeds: [embed],
       });
       return;
     } else {
+      const embed = new EmbedBuilder()
+        .setTitle("Error")
+        .setDescription(
+          `<@${focusUser}> is not verified. Please verify using the </verify:1066111449627369476> command.`
+        );
       await interaction.editReply({
-        content: "User is not verified.",
+        embeds: [embed],
       });
       return;
     }
